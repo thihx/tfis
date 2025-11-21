@@ -800,7 +800,7 @@
         const PASSWORD_HASH = '8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918'; // "admin"
         
         let CONFIG = {
-            webhookUrl: localStorage.getItem('webhookUrl') || window.location.origin,
+            webhookUrl: localStorage.getItem('webhookUrl') || 'https://thihx.app.n8n.cloud',
             defaultMode: localStorage.getItem('defaultMode') || 'B'
         };
         
@@ -877,14 +877,26 @@
         async function loadMatches() {
             try {
                 const response = await fetch(`${CONFIG.webhookUrl}/webhook/get-matches`);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
                 matchesData = await response.json();
                 renderMatches();
             } catch (error) {
                 console.error('Error loading matches:', error);
+                let errorMsg = 'Failed to load matches.';
+                if (error.message.includes('CORS')) {
+                    errorMsg += ' CORS error - check n8n webhook settings.';
+                } else if (error.message.includes('Failed to fetch')) {
+                    errorMsg += ' Network error - check webhook URL.';
+                } else {
+                    errorMsg += ` Error: ${error.message}`;
+                }
                 document.getElementById('matches-table').innerHTML = `
                     <tr><td colspan="6" class="empty-state">
                         <div class="empty-state-icon">❌</div>
-                        <p>Failed to load matches. Check webhook URL.</p>
+                        <p>${errorMsg}</p>
+                        <p><small>URL: ${CONFIG.webhookUrl}/webhook/get-matches</small></p>
                     </td></tr>
                 `;
             }
@@ -893,6 +905,9 @@
         async function loadWatchlist() {
             try {
                 const response = await fetch(`${CONFIG.webhookUrl}/webhook/get-watchlist`);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
                 watchlistData = await response.json();
                 renderWatchlist();
             } catch (error) {
@@ -1139,6 +1154,10 @@
                     body: JSON.stringify(data)
                 });
                 
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
                 const result = await response.json();
                 
                 if (result.success) {
@@ -1146,9 +1165,10 @@
                     closeModal('addWatchlistModal');
                     loadWatchlist();
                 } else {
-                    showToast('Failed to add', 'error');
+                    showToast('Failed to add: ' + (result.message || 'Unknown error'), 'error');
                 }
             } catch (error) {
+                console.error('Error adding to watchlist:', error);
                 showToast('Error: ' + error.message, 'error');
             }
         }
